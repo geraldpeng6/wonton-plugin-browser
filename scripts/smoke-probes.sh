@@ -1,8 +1,7 @@
+# shellcheck shell=bash
 # Browser：Bot 的可见 Chromium（noVNC 画面 + Playwright MCP）。sso=none、没有账号体系，身份项 N/A。
 # 镜像没发布时在本机构建（README 的做法）。
-SSO=none
-MCP=1
-IDENTITY_NA=1
+export IDENTITY_NA=1
 SMOKE_NOTE="noVNC 无账号体系（网关把关），身份项 N/A"
 
 # 本机没有清单里那个摘要时按 README 构建，再把清单里的引用换成构建出来的（只改冒烟的副本）。
@@ -27,7 +26,7 @@ web_assert() { grep -qiE 'novnc|vnc'; }   # 标准输入：noVNC 页面
 mcp_check() { # 有只读工具（观察类）就真调一个，否则只断言 tools/list 有工具
   local n_mine tool out
   n_mine="$(jq --arg s "$SMOKE_SLUG" '[.[] | select(.name | startswith($s + "__"))] | length' "$SMOKE_TOOLS")"
-  [[ "$n_mine" -ge 1 ]] || { echo "tools/list 没有 $SMOKE_SLUG"__" 前缀工具"; return 1; }
+  [[ "$n_mine" -ge 1 ]] || { echo "tools/list 没有 ${SMOKE_SLUG}__ 前缀工具"; return 1; }
   tool="$(jq -r --arg s "$SMOKE_SLUG" '[.[] | select(.name | startswith($s + "__") and .annotations.readOnlyHint == true)][0].name // ""' "$SMOKE_TOOLS")"
   if [[ -z "$tool" ]]; then
     SMOKE_NOTE="${SMOKE_NOTE}；工具没标 readOnlyHint，仅 tools/list，未调"
