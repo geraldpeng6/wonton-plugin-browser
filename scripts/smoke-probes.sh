@@ -9,8 +9,10 @@ before_install() {
   local ref dig proxy="${https_proxy:-${HTTPS_PROXY:-}}" args=()
   ref="$(awk '/^ *image: /{print $2}' "$SMOKE_DIR/docker-compose.yml" | grep 'wonton-browser:' | head -1)"
   [[ -n "$ref" ]] || { echo "清单里没有 wonton-browser 镜像"; return 1; }
-  if [[ -z "${SMOKE_BUILD:-}" ]] && docker image inspect "$ref" >/dev/null 2>&1; then
-    echo "本机已有 $ref，不构建"
+  if [[ -z "${SMOKE_BUILD:-}" ]] && docker manifest inspect "$ref" >/dev/null 2>&1; then
+    # 镜像已发布（ghcr）：交给 install 直接拉。只查本地 image inspect 会在干净 runner 上
+    # 误判成「没发布」，本地构建出来的 dev 摘要 install 又拉不到（2026-11-08 CI 实测）。
+    echo "清单镜像已在发布仓：$ref，不本地构建"
     return 0
   fi
   [[ -n "$proxy" ]] && args=(--build-arg "https_proxy=$proxy")
@@ -34,4 +36,35 @@ mcp_check() { # 有只读工具（观察类）就真调一个，否则只断言 
   fi
   out="$(mcp call "$tool" '{}')" || { echo "只读工具 $tool 调用失败：$out"; return 1; }
   grep -qiE 'snapshot|console|page|tabs' <<<"$out" || { echo "只读工具 $tool 结果不像观察结果：$(head -c 150 <<<"$out")"; return 1; }
+}
+
+# 数据：Chromium 的 profile（登录过的网站、Cookie）存在插件数据目录（docker-compose.yml 的
+# ${WONTON_APP_DATA}:/config）。data_write 在容器里往 profile 目录落一个标记文件（Chromium 不认识
+# 的文件会忽略，不影响 profile），data_check 在升级、重装后读回比对；内容带随机令牌。
+_br_container() { printf 'wonton-%s--%s--browser' "${SMOKE_INSTANCE:-}" "${SMOKE_SLUG:-}"; }
+
+_br_marker_file() { # 标记文件：SMOKE_STATE 在 dev.sh probes 里是目录，目录里放标记文件
+  if [[ -d "${SMOKE_STATE:-}" ]]; then printf '%s/data-marker' "$SMOKE_STATE"; else printf '%s' "${SMOKE_STATE:-}"; fi
+}
+
+data_write() {
+  local container token out
+  container="$(_br_container)"
+  token="wonton-smoke-$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
+  docker exec "$container" sh -c "printf 'wonton-smoke %s\n' '$token' > /config/wonton-smoke-marker" ||
+    { echo "往 $container:/config 写标记失败"; return 1; }
+  out="$(docker exec "$container" cat /config/wonton-smoke-marker)" || { echo "标记写完读不回"; return 1; }
+  grep -qF "$token" <<<"$out" || { echo "标记读回对不上：$out"; return 1; }
+  printf '%s' "$token" >"$(_br_marker_file)" || { echo "写不进标记文件"; return 1; }
+}
+
+data_check() {
+  local container token out
+  container="$(_br_container)"
+  token="$(cat "$(_br_marker_file)" 2>/dev/null)" || true
+  [[ -n "$token" ]] || { echo "没有 data_write 留下的标记（SMOKE_STATE=${SMOKE_STATE:-未设置}）"; return 1; }
+  out="$(docker exec "$container" cat /config/wonton-smoke-marker 2>/dev/null)" ||
+    { echo "标记文件没了：$container:/config/wonton-smoke-marker 读不回"; return 1; }
+  grep -qF "$token" <<<"$out" || { echo "标记内容对不上：$(head -c 120 <<<"$out")"; return 1; }
+  echo "profile 目录里的标记还在（wonton-smoke $token）"
 }
