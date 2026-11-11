@@ -81,8 +81,8 @@ x-wonton:
   kind: app
   title: { zh: Bot 的浏览器, en: Bot Browser }
   description:
-    zh: Bot 开网页、点按、填表，你实时看着，随时接手
-    en: Your bot browses the web while you watch and take over any time
+    zh: 让 Bot 替你上网办事：它开网页、点按、填表时你在旁边实时看着，需要时随时接手；你登录过的网站它也能直接用。
+    en: "Lets your bot get things done on the web: watch live as it opens pages, clicks and fills in forms, and take over whenever you need to. It shares your sign-ins, so sites you're logged into work for it too."
   icon: icon.png
   notices: [NOTICE]
   screenshots: [screenshots/live-view.png, screenshots/browsing.png]
