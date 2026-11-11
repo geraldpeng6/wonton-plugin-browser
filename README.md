@@ -1,6 +1,6 @@
 # 云吞插件：Bot 的浏览器
 
-开发流程见[插件开发指南](https://github.com/geraldpeng6/wonton-docs/blob/main/develop.md)。
+开发流程见[插件开发指南](https://github.com/wontonapp/wonton-docs/blob/main/develop.md)。
 
 Bot 在家里服务器上的一个带画面的 Chromium，Playwright MCP 驾驶它打开网页、点按、填表；用户在 App 里打开这个插件的网页
 就能实时看到画面，随时接手，再交还给 Bot。
